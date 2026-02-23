@@ -1,10 +1,20 @@
 import argparse
 import pandas as pd
-from encoding import detect_encoding
+import numpy as np
+import chardet
 from columns_selection import *
 import pickle
 import string as s
 
+def detect_encoding(file_path):
+    with open(file_path, 'rb') as file:
+        detector = chardet.universaldetector.UniversalDetector()
+        for line in file:
+            detector.feed(line)
+            if detector.done:
+                break
+        detector.close()
+    return detector.result['encoding']
 
 def load_to_df(kwalifikacyjne, NDTK, wynikowe):
         coding = detect_encoding(kwalifikacyjne)
@@ -21,17 +31,12 @@ def load_to_df(kwalifikacyjne, NDTK, wynikowe):
         except FileNotFoundError:
                 print("File not found.")
         
-        df_kwalifikacyjne['patient_globalentryid'].drop_duplicates()
+        df_kwal_no_dupl = df_kwalifikacyjne.drop_duplicates('patient_globalentryid')
 
-        return df_kwalifikacyjne, df_NDTK, df_wynikowe
+        return df_kwal_no_dupl, df_NDTK, df_wynikowe
 
 
 def change_date_and_count(df_joined, date_cols):
-
-        if 'patient_sex_shortdesc' in df_joined.columns:
-                gender_count = df_joined['patient_sex_shortdesc'].value_counts()
-                filehandler = open("gender.txt",'wb')
-                pickle.dump(gender_count, filehandler)
         
         for col in df_joined.columns:
                 if 'date' in col.lower():
@@ -42,7 +47,7 @@ def change_date_and_count(df_joined, date_cols):
 
 
 def add_age(df_joined):
-        df_joined['age'] = round((df_joined['reportdate_qual'] - df_joined['patient_birthdate']).dt.days / 365.25)
+        df_joined['age'] = np.floor((df_joined['reportdate_qual'] - df_joined['patient_birthdate']).dt.days / 365.25)
         return df_joined
 
 
@@ -57,7 +62,7 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         df_kwalifikacyjne, 
         df_NDTK, 
         on='patient_globalentryid',
-        how='inner',
+        how='left',
         suffixes=('_qual', '_ndtk')
         )
         
@@ -65,7 +70,7 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         df_joined,
         df_wynikowe,
         on='patient_globalentryid',
-        how='inner'
+        how='left'
         )
 
         return df_joined
@@ -95,7 +100,7 @@ if __name__ == "__main__":
 
         parser.add_argument(
                 '-o', '--output',
-                default="final_database.csv",
+                default=(R"..\output_files\final_database_full.csv"),
                 help="Output filename"
         )
 

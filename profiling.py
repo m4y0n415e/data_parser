@@ -2,18 +2,21 @@ import argparse
 import pandas as pd
 from encoding import detect_encoding
 import string as s
-from columns_selection import *
+from merging.columns_selection import *
 
 def load_to_df(db):
         coding = detect_encoding(db)
         try:
-                df_joined = pd.read_csv(db, encoding=coding, usecols=COLS_QUAL, dtype=str)
+                df_joined = pd.read_csv(db, encoding=coding, dtype=str)
         except FileNotFoundError:
                 print("File not found.")
 
+        df_joined = df_joined.drop_duplicates('patient_globalentryid')
         return df_joined
 
 def loc_stats(joined):
+       joined['age'] = joined['age'].astype(float)
+
        mean_age = round(joined['age'].mean(), 1)
        mean_age_women = round(joined[joined['patient_sex_shortdesc'] == 'K']['age'].mean(), 1)
        mean_age_men = round(joined[joined['patient_sex_shortdesc'] == 'M']['age'].mean(), 1)
@@ -21,7 +24,7 @@ def loc_stats(joined):
        max_age = max(joined['age'])
        min_age = min(joined['age'])
 
-       with open("loc_stat.txt", "w") as f:
+       with open(R"output_files\loc_stat.txt", "w") as f:
               f.write(f"Mean age: {mean_age} \nMean age women: {mean_age_women}\nMean age men: {mean_age_men}\nMedian age: {median_age}\nMaximum age: {max_age}\nMinumum age: {min_age}\n")
 
 
@@ -46,5 +49,3 @@ if __name__ == "__main__":
         df_joined = load_to_df(args.input)
 
         loc_stats(df_joined)
-
-        df_joined.to_csv(args.output, index=False)

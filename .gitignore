@@ -29,7 +29,6 @@ data_pre/
 data_post/
 output_files/
 graphs/
-PLCS4 (UCK)/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

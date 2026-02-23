@@ -1,7 +1,8 @@
 import argparse
 import pandas as pd
 from encoding import detect_encoding
-from columns_selection import *
+from merging.columns_selection import *
+import pickle
 
 def load(input):
     coding = detect_encoding(input)
@@ -14,6 +15,12 @@ def load(input):
 def analise(df):
     unique = df['patient_globalentryid'].nunique()
     print(unique)
+
+    df_no_dup= df.drop_duplicates('patient_globalentryid')
+    if 'patient_sex_shortdesc' in df_no_dup.columns:
+        gender_count = df_no_dup['patient_sex_shortdesc'].value_counts()
+        with open(R"output_files\gender.txt",'wb') as filehandler:
+                pickle.dump(gender_count, filehandler)
 
 
 if __name__ == "__main__":
@@ -31,5 +38,4 @@ if __name__ == "__main__":
     df = load(args.input)
 
     analise(df)
-
 
