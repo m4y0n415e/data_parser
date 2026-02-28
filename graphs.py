@@ -21,25 +21,25 @@ def graphs(patient_profiles, gender):
                 gender_count = pickle.load(f)
         gender_counts = [gender_count.get('K', 0), gender_count.get('M', 0)]
 
-        # bars = plt.bar(['Female', 'Male'], gender_counts)
-        # plt.title('Sex distribution of patients in the programme')
-        # plt.xlabel('Sex')
-        # plt.ylabel('Total number of patients')
-        # plt.bar_label(bars)
-        # plt.savefig(R"graphs\gender_distribution.png")
+        bars = plt.bar(['Female', 'Male'], gender_counts)
+        plt.title('Sex distribution of patients in the programme')
+        plt.xlabel('Sex')
+        plt.ylabel('Total number of patients')
+        plt.bar_label(bars)
+        plt.savefig(R"graphs\gender_distribution.png")
 
-        # plt.clf()
+        plt.clf()
         
         patient_profiles['age'] = patient_profiles['age'].astype(float)
         df_no_dup= patient_profiles.drop_duplicates('patient_globalentryid')
 
-        # plt.hist(df_no_dup['age'], bins=10, rwidth=1)
-        # plt.title('Age distribution of patients in the programme')
-        # plt.xlabel('Age')
-        # plt.ylabel('Total number of patients')
-        # plt.savefig(R"graphs\age_distribution.png")
+        plt.hist(df_no_dup['age'], bins=10, rwidth=1)
+        plt.title('Age distribution of patients in the programme')
+        plt.xlabel('Age')
+        plt.ylabel('Total number of patients')
+        plt.savefig(R"graphs\age_distribution.png")
 
-        # plt.clf()
+        plt.clf()
         
         ages_w = df_no_dup[df_no_dup['patient_sex_shortdesc'] == 'K']['age']
         ages_m = df_no_dup[df_no_dup['patient_sex_shortdesc']== 'M']['age']

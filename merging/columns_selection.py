@@ -5,6 +5,7 @@ COLS_QUAL = [
     "patient_sex_shortdesc",
     "patient_birthdate",
     "reportdate",
+    "report_title",
     "patientdata_withdisabilities",
     "patientdata_workperformedother",
     "patientdata_smokingstatement",
