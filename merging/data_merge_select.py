@@ -55,8 +55,6 @@ def add_time_since_last_visit(df_joined):
        df_joined.sort_values(by=['patient_globalentryid', 'unified_reportdate'], inplace=True)
        df_joined['time_since_last_visit'] = (df_joined['unified_reportdate'] - (df_joined.groupby('patient_globalentryid')['unified_reportdate'].shift())).dt.days
        
-       # df_patient = df_patient_profiles[df_patient_profiles['patient_globalentryid'] == 'fc7c260a-e902-49ff-b2a1-58bf25471937']
-       # df_patient.to_csv('output.csv', columns=['reportdate_qual','reportdate_ndtk', 'reportdate', 'unified_reportdate'])
        df_joined.drop(labels='unified_reportdate', axis=1, inplace=True)
        return df_joined
 

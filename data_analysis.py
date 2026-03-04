@@ -21,7 +21,21 @@ def analise(df):
         gender_count = df_no_dup['patient_sex_shortdesc'].value_counts()
         with open(R"output_files\gender.txt",'wb') as filehandler:
                 pickle.dump(gender_count, filehandler)
+    # analiza paczkolat i innych wybranych cech -- przejrzec, wybrac
 
+def loc_stats(df_joined):
+       joined = df_joined.drop_duplicates('patient_globalentryid')
+       joined['age'] = joined['age'].astype(float)
+
+       mean_age = round(joined['age'].mean(), 1)
+       mean_age_women = round(joined[joined['patient_sex_shortdesc'] == 'K']['age'].mean(), 1)
+       mean_age_men = round(joined[joined['patient_sex_shortdesc'] == 'M']['age'].mean(), 1)
+       median_age = joined['age'].median()
+       max_age = max(joined['age'])
+       min_age = min(joined['age'])
+
+       with open(R"output_files\loc_stat.txt", "w") as f:
+              f.write(f"Mean age: {mean_age} \nMean age women: {mean_age_women}\nMean age men: {mean_age_men}\nMedian age: {median_age}\nMaximum age: {max_age}\nMinumum age: {min_age}\n")
 
 if __name__ == "__main__":
 
@@ -36,6 +50,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     df = load(args.input)
+
+    loc_stats(df)
 
     analise(df)
 

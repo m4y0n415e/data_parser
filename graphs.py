@@ -2,9 +2,10 @@ import argparse
 import pandas as pd
 from encoding import detect_encoding
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mtick
 import numpy as np
 from merging.columns_selection import *
-from profiling import *
+from data_analysis import *
 import pickle
 
 def load(input):
@@ -40,26 +41,35 @@ def graphs(patient_profiles, gender):
         plt.savefig(R"graphs\age_distribution.png")
 
         plt.clf()
-        
-        ages_w = df_no_dup[df_no_dup['patient_sex_shortdesc'] == 'K']['age']
-        ages_m = df_no_dup[df_no_dup['patient_sex_shortdesc']== 'M']['age']
 
-        bins = np.arange(30, 90, 5)
-        counts_w, _ = np.histogram(ages_w, bins=bins)
-        counts_m, _ = np.histogram(ages_m, bins=bins)
+        dataOne = df_no_dup[df_no_dup['patient_sex_shortdesc'] == 'K']['age']
+        dataTwo = df_no_dup[df_no_dup['patient_sex_shortdesc']== 'M']['age']
 
-        counts_m_inverted = counts_m * -1
+        ages_w = plt.hist(dataTwo, bins='fd', orientation='horizontal', label='Women', color='red')
+        ages_m = plt.hist(dataOne, bins='fd', orientation='horizontal', label='Men',color='teal')
 
-        plt.barh(bins[:-1], counts_w, height=4.5, label='Women', color='red')
-        plt.barh(bins[:-1], counts_m_inverted, height=4.5, label='Men',color='teal')
+        for p in ages_m[2]:
+                p.set_width( - p.get_width())
 
-        ticks = plt.xticks()[0]
-        plt.xticks(ticks, [str(abs(int(tick))) for tick in ticks])
-        plt.xlabel('Number of patients')
+        xmin = min([ min(w.get_width() for w in ages_m[2]), 
+                        min([w.get_width() for w in ages_w[2]]) ])
+        xmin = np.floor(xmin)
+        xmax = max([ max(w.get_width() for w in ages_m[2]), 
+                        max([w.get_width() for w in ages_w[2]]) ])
+        xmax = np.ceil(xmax)
+        range = xmax - xmin
+        delta = 0.0 * range
+        plt.xlim([xmin - delta, xmax + delta])
+        total = len(dataOne) + len(dataTwo)
+        formatter = mtick.FuncFormatter(lambda x, pos: f"{abs(x) / total * 100:.1f}%")
+        plt.gca().xaxis.set_major_formatter(formatter)
+        plt.legend(loc='best')
+        plt.axvline(0.0)
+        plt.xlabel('Percent of patients')
         plt.ylabel('Age')
         plt.title('Patient age-sex pyramind')
         plt.legend()
-
+        # apparently, the graph comes out weird -- change bins width (multiply by 1.2)
         plt.savefig(R"graphs\b2b_pyramid_select.png")
 
 
