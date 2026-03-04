@@ -28,6 +28,7 @@ MANIFEST
 data_pre/
 data_post/
 output_files/
+input_files/
 graphs/
 
 # PyInstaller

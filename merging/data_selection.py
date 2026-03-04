@@ -71,6 +71,11 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
 
         df_grouped = df_joined.groupby("patient_globalentryid").filter(lambda x: x['report_title'].nunique() == 3)
 
+        # do dodania: wybór tylko tych w wieku 50-74 lat; > 20 paczkolat; oraz finalnie, tych, co dotrwali do końca programu 
+        # (daty między wizytą kwal. lub ewentualnie ndtk (jak wyjdzie z timeline-u) a ostatnią zanotowaną wizytą to ok. 3 lata)
+        # na każdym etapie selekcji, dodać zapis do pliku (append) rozmiaru tabeli danych (unique ids, które pozostają)
+
+
         # df_patient = df_grouped[df_grouped['patient_globalentryid'] == 'fc7c260a-e902-49ff-b2a1-58bf25471937']
         # df_patient.to_csv('output.csv', columns=['reportdate', 'report_title'])
 

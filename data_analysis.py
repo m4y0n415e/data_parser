@@ -21,6 +21,7 @@ def analise(df):
         gender_count = df_no_dup['patient_sex_shortdesc'].value_counts()
         with open(R"output_files\gender.txt",'wb') as filehandler:
                 pickle.dump(gender_count, filehandler)
+                
     # analiza paczkolat i innych wybranych cech -- przejrzec, wybrac
 
 def loc_stats(df_joined):

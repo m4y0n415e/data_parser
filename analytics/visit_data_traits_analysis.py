@@ -72,11 +72,7 @@ if __name__ == "__main__":
 
         args = parser.parse_args()
 
-        # df_kwalifikacyjne = load_to_df(args.qualification)
-
         traits = load_to_df(args.qualification)
-
-        # df_wynikowe = load_to_df(args.results)
 
         # traits_slice = traits.iloc[:16]
 

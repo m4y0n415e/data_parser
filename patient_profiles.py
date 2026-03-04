@@ -12,7 +12,7 @@ def load(input):
             print("File not found.")
     return df
 
-# zaimplementowac selekccje -- aby zgadzal sie wiek i paczkolata! 50-74 i >20 paczkolat (wyciagnac te dane)
+# tu wrzucić do złożenia w strukturę 'patient_profile' wyselekcjonowaną pod kątem spełniających wszystkie kryteria pacjentów tabelę/tabele danych
 
 if __name__ == "__main__":
 
