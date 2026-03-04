@@ -47,7 +47,7 @@ def change_date_and_count(df_joined, date_cols):
 
 
 def add_age(df_joined):
-        df_joined['age'] = np.floor((df_joined['reportdate_qual'] - df_joined['patient_birthdate']).dt.days / 365.25)
+        df_joined['age'] = np.round(((df_joined['reportdate'] - df_joined['patient_birthdate']).dt.days / 365.25),1)
         return df_joined
 
 
@@ -62,7 +62,7 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         df_kwalifikacyjne, 
         df_NDTK, 
         on='patient_globalentryid',
-        how='left',
+        how='inner',
         suffixes=('_qual', '_ndtk')
         )
         
@@ -70,7 +70,7 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         df_joined,
         df_wynikowe,
         on='patient_globalentryid',
-        how='left'
+        how='inner'
         )
 
         return df_joined
@@ -100,7 +100,7 @@ if __name__ == "__main__":
 
         parser.add_argument(
                 '-o', '--output',
-                default=(R"..\output_files\final_database_full.csv"),
+                default=(R"..\output_files\qual_age.csv"),
                 help="Output filename"
         )
 
@@ -108,10 +108,10 @@ if __name__ == "__main__":
 
         df_qualification, df_ndtk, df_results = load_to_df(args.qualification, args.ndtk, args.results)
 
-        df_patient_profiles = fusion(df_qualification, df_ndtk, df_results)
+        # df_patient_profiles = fusion(df_qualification, df_ndtk, df_results)
 
         date_cols = []
-        df_patient_profiles = change_date_and_count(df_patient_profiles, date_cols)
+        df_patient_profiles = change_date_and_count(df_qualification, date_cols)
 
         df_patient_profiles_new_col = add_age(df_patient_profiles)
 

@@ -51,11 +51,9 @@ def add_age(df_joined):
         return df_joined
 
 def add_time_since_last_visit(df_joined):
-       df_joined['unified_reportdate'] = (df_joined['reportdate_qual'].combine_first(df_joined['reportdate_ndtk'])).combine_first(df_joined['reportdate'])
-       df_joined.sort_values(by=['patient_globalentryid', 'unified_reportdate'], inplace=True)
-       df_joined['time_since_last_visit'] = (df_joined['unified_reportdate'] - (df_joined.groupby('patient_globalentryid')['unified_reportdate'].shift())).dt.days
+       df_joined.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
+       df_joined['time_since_last_visit'] = (df_joined['reportdate'] - (df_joined.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
        
-       df_joined.drop(labels='unified_reportdate', axis=1, inplace=True)
        return df_joined
 
 def format_date(df_joined, date_cols):
@@ -69,7 +67,12 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
                (df_kwalifikacyjne[['patient_globalentryid','reportdate', 'report_title']],
                df_NDTK[['patient_globalentryid','reportdate', 'report_title']],
                df_wynikowe[['patient_globalentryid','reportdate', 'report_title']])
-        ) # continue from here
+        )
+
+        df_grouped = df_joined.groupby("patient_globalentryid").filter(lambda x: x['report_title'].nunique() == 3)
+
+        # df_patient = df_grouped[df_grouped['patient_globalentryid'] == 'fc7c260a-e902-49ff-b2a1-58bf25471937']
+        # df_patient.to_csv('output.csv', columns=['reportdate', 'report_title'])
 
         # df_joined = pd.merge(
         # df_kwalifikacyjne, 
@@ -86,7 +89,7 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         # how='inner'
         # )
 
-        return df_joined
+        return df_grouped
 
 
 if __name__ == "__main__":
@@ -113,7 +116,7 @@ if __name__ == "__main__":
 
         parser.add_argument(
                 '-o', '--output',
-                default=(R"..\output_files\final_database_select_test.csv"),
+                default=(R"..\output_files\database_select_draft.csv"),
                 help="Output filename"
         )
 
