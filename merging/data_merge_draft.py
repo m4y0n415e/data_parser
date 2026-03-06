@@ -36,14 +36,13 @@ def load_to_df(kwalifikacyjne, NDTK, wynikowe):
         return df_kwal_no_dupl, df_NDTK, df_wynikowe
 
 
-def change_date_and_count(df_joined, date_cols):
+def change_date_and_count(df, date_cols):
         
-        for col in df_joined.columns:
+        for col in df.columns:
                 if 'date' in col.lower():
-                        df_joined[col] = pd.to_datetime(df_joined[col], format='mixed')
+                        df[col] = pd.to_datetime(df[col], format='mixed')
                         date_cols.append(col)
-                
-        return df_joined
+        return df
 
 
 def add_age(df_joined):

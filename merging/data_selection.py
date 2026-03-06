@@ -36,33 +36,58 @@ def load_to_df(kwalifikacyjne, NDTK, wynikowe):
         return df_kwal_no_dupl, df_NDTK, df_wynikowe
 
 
-def change_date_and_count(df_joined, date_cols):
+def change_date_and_count(df_qualification, df_ndtk, df_results, date_cols):
         
-        for col in df_joined.columns:
-                if 'date' in col.lower():
-                        df_joined[col] = pd.to_datetime(df_joined[col], format='mixed')
-                        date_cols.append(col)
+        df_list = [df_qualification, df_ndtk, df_results]
+
+        for df in df_list:
+                for col in df.columns:
+                        if 'date' in col.lower():
+                                df[col] = pd.to_datetime(df[col], format='mixed')
+                                date_cols.append(col)
                 
-        return df_joined, date_cols
+        return df_qualification, df_ndtk, df_results, date_cols
 
+def add_age(df):
+        df['age'] = np.floor((df['reportdate_qual'] - df['patient_birthdate']).dt.days / 365.25)
+        return df
 
-def add_age(df_joined):
-        df_joined['age'] = np.floor((df_joined['reportdate_qual'] - df_joined['patient_birthdate']).dt.days / 365.25)
-        return df_joined
+def selection2(df):
+       df_clean_age = df[(df['age'] >= 50) & (df['age'] <= 74)]
+       df_clean_packyears = df_clean_age[()]
+       print("Twoja mama")
 
-def add_time_since_last_visit(df_joined):
-       df_joined.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
-       df_joined['time_since_last_visit'] = (df_joined['reportdate'] - (df_joined.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
-       
-       return df_joined
+def add_time_since_last_visit(df):
+       df.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
+       df['time_since_last_visit'] = (df['reportdate'] - (df.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
+       return df
 
-def format_date(df_joined, date_cols):
-        for col in date_cols:
-                df_joined[col] = df_joined[col].dt.strftime("%Y-%m-%d")
-        return df_joined
+def format_date(df_qualification, df_ndtk, df_results, date_cols):
+        df_list = [df_qualification, df_ndtk, df_results]
+        for df in df_list:
+                for col in date_cols:
+                        df[col] = df[col].dt.strftime("%Y-%m-%d")
+                return df
 
+def draft_merge(df_qualification, df_ndtk, df_results, output):
+        df_joined = pd.merge(
+        df_qualification, 
+        df_ndtk, 
+        on='patient_globalentryid',
+        how='inner',
+        suffixes=('_qual', '_ndtk')
+        )
+        
+        df_joined = pd.merge(
+        df_joined,
+        df_results,
+        on='patient_globalentryid',
+        how='inner'
+        )
 
-def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
+        df_joined.to_csv(output, index=False)
+
+def grouping_and_selection1(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         df_joined = pd.concat(
                (df_kwalifikacyjne[['patient_globalentryid','reportdate', 'report_title']],
                df_NDTK[['patient_globalentryid','reportdate', 'report_title']],
@@ -75,24 +100,8 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         # (daty między wizytą kwal. lub ewentualnie ndtk (jak wyjdzie z timeline-u) a ostatnią zanotowaną wizytą to ok. 3 lata)
         # na każdym etapie selekcji, dodać zapis do pliku (append) rozmiaru tabeli danych (unique ids, które pozostają)
 
-
         # df_patient = df_grouped[df_grouped['patient_globalentryid'] == 'fc7c260a-e902-49ff-b2a1-58bf25471937']
         # df_patient.to_csv('output.csv', columns=['reportdate', 'report_title'])
-
-        # df_joined = pd.merge(
-        # df_kwalifikacyjne, 
-        # df_NDTK, 
-        # on='patient_globalentryid',
-        # how='inner',
-        # suffixes=('_qual', '_ndtk')
-        # )
-        
-        # df_joined = pd.merge(
-        # df_joined,
-        # df_wynikowe,
-        # on='patient_globalentryid',
-        # how='inner'
-        # )
 
         return df_grouped
 
@@ -129,15 +138,17 @@ if __name__ == "__main__":
 
         df_qualification, df_ndtk, df_results = load_to_df(args.qualification, args.ndtk, args.results)
 
-        df_patient_profiles = fusion(df_qualification, df_ndtk, df_results)
+        df_grouped = grouping_and_selection1(df_qualification, df_ndtk, df_results)
 
-        # date_cols = []
-        # df_patient_profiles, date_cols = change_date_and_count(df_patient_profiles, date_cols)
+        date_cols = []
+        df_qualification, df_ndtk, df_results = change_date_and_count(df_qualification, df_ndtk, df_results, date_cols)
 
-        # df_patient_profiles_new_col1 = add_age(df_patient_profiles)
+        df_qualification_w_age = add_age(df_qualification)
 
-        # df_patient_profiles_new_col2 = add_time_since_last_visit(df_patient_profiles_new_col1)
+        df_qualification_selected = selection2(df_qualification_w_age)
 
-        # df_patient_profiles_fin = format_date(df_patient_profiles_new_col2, date_cols)
+        df_ndtk_w_time_s, df_results_w_time_s = add_time_since_last_visit(df_ndtk, df_results)
 
-        df_patient_profiles.to_csv(args.output, index=False)
+        df_qualification_f, df_ndtk_f, df_results_f = format_date(df_ndtk_w_time_s, df_results_w_time_s, df_qualification_selected, date_cols)
+
+        draft_merge(df_qualification_f, df_ndtk_f, df_results_f, args.output)
