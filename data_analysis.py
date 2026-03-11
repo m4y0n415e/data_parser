@@ -14,26 +14,30 @@ def load(input):
 
 def analise(df):
     unique = df['patient_globalentryid'].nunique()
-    print(unique)
 
     df_no_dup= df.drop_duplicates('patient_globalentryid')
     if 'patient_sex_shortdesc' in df_no_dup.columns:
         gender_count = df_no_dup['patient_sex_shortdesc'].value_counts()
         with open(R"output_files\gender.txt",'wb') as filehandler:
-                pickle.dump(gender_count, filehandler)
-                
+            pickle.dump(gender_count, filehandler)
+
+    if 'patientcard_packyears_packyearsvalue' in df_no_dup.columns:
+        packyears_count = df_no_dup['patientcard_packyears_packyearsvalue'].value_counts()
+        with open(R"output_files\packyears.txt", 'wb') as filehandler:
+            pickle.dump(packyears_count, filehandler)
+
     # analiza paczkolat i innych wybranych cech -- przejrzec, wybrac
 
-def loc_stats(df_joined):
-       joined = df_joined.drop_duplicates('patient_globalentryid')
-       joined['age'] = joined['age'].astype(float)
+def loc_stats(df):
+       df_working = df.drop_duplicates('patient_globalentryid')
+       df_working['age'] = df_working['age'].astype(float)
 
-       mean_age = round(joined['age'].mean(), 1)
-       mean_age_women = round(joined[joined['patient_sex_shortdesc'] == 'K']['age'].mean(), 1)
-       mean_age_men = round(joined[joined['patient_sex_shortdesc'] == 'M']['age'].mean(), 1)
-       median_age = joined['age'].median()
-       max_age = max(joined['age'])
-       min_age = min(joined['age'])
+       mean_age = round(df_working['age'].mean(), 1)
+       mean_age_women = round(df_working[df_working['patient_sex_shortdesc'] == 'K']['age'].mean(), 1)
+       mean_age_men = round(df_working[df_working['patient_sex_shortdesc'] == 'M']['age'].mean(), 1)
+       median_age = df_working['age'].median()
+       max_age = max(df_working['age'])
+       min_age = min(df_working['age'])
 
        with open(R"output_files\loc_stat.txt", "w") as f:
               f.write(f"Mean age: {mean_age} \nMean age women: {mean_age_women}\nMean age men: {mean_age_men}\nMedian age: {median_age}\nMaximum age: {max_age}\nMinumum age: {min_age}\n")

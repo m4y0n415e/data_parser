@@ -24,6 +24,18 @@ if __name__ == "__main__":
             help="Path to the input .csv file to analise"
     )
 
+#     parser.add_argument(
+#             '-i1', '--input1', 
+#             required=True, 
+#             help="Path to the input .csv file to analise"
+#     )
+
+#     parser.add_argument(
+#             '-i2', '--input2', 
+#             required=True, 
+#             help="Path to the input .csv file to analise"
+#     )
+
     args = parser.parse_args()
 
     df = load(args.input)

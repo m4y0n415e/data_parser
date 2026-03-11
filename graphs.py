@@ -34,10 +34,10 @@ def graphs(patient_profiles, gender):
         patient_profiles['age'] = patient_profiles['age'].astype(float)
         df_no_dup= patient_profiles.drop_duplicates('patient_globalentryid')
 
-        plt.hist(df_no_dup['age'], bins=10, rwidth=1)
+        plt.hist(df_no_dup['age'], bins='fd', rwidth=1)
         plt.title('Age distribution of patients in the programme')
         plt.xlabel('Age')
-        plt.ylabel('Total number of patients')
+        plt.ylabel('The number of patients')
         plt.savefig(R"graphs\age_distribution.png")
 
         plt.clf()
@@ -69,8 +69,17 @@ def graphs(patient_profiles, gender):
         plt.ylabel('Age')
         plt.title('Patient age-sex pyramind')
         plt.legend()
-        # apparently, the graph comes out weird -- change bins width (multiply by 1.2)
         plt.savefig(R"graphs\b2b_pyramid_select.png")
+
+        plt.clf()
+
+        df_no_dup['patientcard_packyears_packyearsvalue'] = df_no_dup['patientcard_packyears_packyearsvalue'].astype(float)
+
+        plt.hist(df_no_dup['patientcard_packyears_packyearsvalue'], bins='fd', rwidth=1)
+        plt.title('Packyears smoked distribution in the programme')
+        plt.xlabel('Packyears')
+        plt.ylabel('The number of patients')
+        plt.savefig(R"graphs\packyears_value_distribution.png")
 
 
 if __name__ == "__main__":

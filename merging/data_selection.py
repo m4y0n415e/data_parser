@@ -180,7 +180,7 @@ if __name__ == "__main__":
 
         # completed_full_programme(df_ndtk_w_time_s, df_results_w_time_s)
 
-        df_qualification_f, df_ndtk_f, df_results_f = format_date(df_ndtk_w_time_s, df_results_w_time_s, df_qualification_selected, date_cols)
+        df_qualification_f, df_ndtk_f, df_results_f = format_date(df_qualification_selected, df_ndtk_w_time_s, df_results_w_time_s, date_cols)
 
         draft_merge(df_qualification_f, df_ndtk_f, df_results_f, args.output)
 
