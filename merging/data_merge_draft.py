@@ -61,15 +61,15 @@ def fusion(df_kwalifikacyjne, df_NDTK, df_wynikowe):
         df_kwalifikacyjne, 
         df_NDTK, 
         on='patient_globalentryid',
-        how='inner',
-        suffixes=('_qual', '_ndtk')
+        how='left',
+        suffixes=('_init', '_ndtk')
         )
         
         df_joined = pd.merge(
         df_joined,
         df_wynikowe,
         on='patient_globalentryid',
-        how='inner'
+        how='left'
         )
 
         return df_joined
@@ -80,9 +80,9 @@ if __name__ == "__main__":
         parser = argparse.ArgumentParser()
 
         parser.add_argument(
-                '-q', '--qualification', 
+                '-i', '--initial', 
                 required=True, 
-                help="Path to the qualification results .csv file"
+                help="Path to the initial results .csv file"
         )
 
         parser.add_argument(
@@ -99,18 +99,18 @@ if __name__ == "__main__":
 
         parser.add_argument(
                 '-o', '--output',
-                default=(R"..\output_files\qual_age.csv"),
+                default=(R"../output_files/full_data_merged_left.csv"),
                 help="Output filename"
         )
 
         args = parser.parse_args()
 
-        df_qualification, df_ndtk, df_results = load_to_df(args.qualification, args.ndtk, args.results)
+        df_initial, df_ndtk, df_results = load_to_df(args.initial, args.ndtk, args.results)
 
-        # df_patient_profiles = fusion(df_qualification, df_ndtk, df_results)
+        df_patient_profiles = fusion(df_initial, df_ndtk, df_results)
 
         date_cols = []
-        df_patient_profiles = change_date_and_count(df_qualification, date_cols)
+        df_patient_profiles = change_date_and_count(df_initial, date_cols)
 
         df_patient_profiles_new_col = add_age(df_patient_profiles)
 

@@ -2,7 +2,7 @@ import chardet
 
 def detect_encoding(file_path):
     with open(file_path, 'rb') as file:
-        detector = chardet.universaldetector.UniversalDetector()
+        detector = chardet.detector.UniversalDetector()
         for line in file:
             detector.feed(line)
             if detector.done:

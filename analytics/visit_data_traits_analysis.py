@@ -48,13 +48,13 @@ if __name__ == "__main__":
 
         parser.add_argument(
                 '-q', '--qualification', 
-                required=True, 
+                required=False, 
                 help="Path to the qualification results .csv file"
         )
 
         parser.add_argument(
                 '-n', '--ndtk', 
-                required=False, 
+                required=True, 
                 help="Path to the NDTK results .csv file"
         )
 
@@ -72,7 +72,7 @@ if __name__ == "__main__":
 
         args = parser.parse_args()
 
-        traits = load_to_df(args.qualification)
+        traits = load_to_df(args.ndtk)
 
         traits_slice = traits.iloc[:40]
 
