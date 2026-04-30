@@ -31,15 +31,15 @@ def modify(ndtk, ndtk_unmodified):
     return modified_ndtk
 
 
-def ratios(df, cancers):
+def emphysema_analysis(df, cancers):
     exceptions = ['8d94c658-2da7-412e-b926-f53fa591d6ca', 'ebe50e50-1b59-4523-8b80-1e183ac1eded', 'b11ce3d3-4340-42f2-95ea-979643081852']
     temp = cancers[cancers['patient_globalentryid'].isin(exceptions)]
     df = pd.concat([df, temp], ignore_index=True)
 
-    df.to_csv("temp.csv")
+    df = df[df['emphysema_emphysema'].notna()]
 
-    df_temp = df[~df['emphysema_emphysema'].isna()]
-    print(df_temp['patient_sex_shortdesc'].value_counts())
+    # df_temp = df[~df['emphysema_emphysema'].isna()]
+    print(df['patient_sex_desc'].value_counts())
 
     emphysema_desc = ["moderate", "mild", "severe"]
     emphysema_present_total = df['emphysema_emphysema'].value_counts()
@@ -51,13 +51,18 @@ def ratios(df, cancers):
             filehandler.write(f"Emphysema present: {sum_of_present_total}\nNo visible emphysema: {no_emphysema}\n")
 
     diagnosed_patients = df[df['patient_globalentryid'].isin(cancers['patient_globalentryid'])]
+
+    is_diagnosed = df['patient_globalentryid'].isin(cancers['patient_globalentryid'])
+
+
+    df['is_diagnosed'] = is_diagnosed
     
-    diagnosed_patients_temp = diagnosed_patients[~diagnosed_patients['emphysema_emphysema'].isna()]
-    print(diagnosed_patients_temp['patient_sex_shortdesc'].value_counts())
+    # diagnosed_patients_temp = diagnosed_patients[~diagnosed_patients['emphysema_emphysema'].isna()]
+    print(diagnosed_patients['patient_sex_desc'].value_counts())
 
     emphysema_in_diag_pat_values = diagnosed_patients['emphysema_emphysema'].value_counts()
 
-    print(diagnosed_patients['patient_globalentryid'].shape)
+    # print(diagnosed_patients['patient_globalentryid'].shape)
 
     sum_in_diag = emphysema_in_diag_pat_values[emphysema_desc].sum()
 
@@ -66,6 +71,11 @@ def ratios(df, cancers):
 
     emphysema_condition = (df['emphysema_emphysema'].dropna() != 'notVisible').map({True: 'Yes', False: 'No'})
 
+    emphysema_column = df['emphysema_emphysema'].dropna() != 'notVisible'
+
+    df['emphysema_present'] = emphysema_column.astype(int)
+    
+    
     emphysema_gender_cross = pd.crosstab(index=emphysema_condition, columns=df['patient_sex_desc'], rownames=['has_emphysema'])
 
     print(emphysema_gender_cross)
@@ -82,6 +92,25 @@ def ratios(df, cancers):
     with open(R"output_files/emphysema.txt", 'a') as filehandler:
             filehandler.write(f"Emphysema presence across genders in patients diagnosed with cancer:\n{emphysema_gender_cross_cancers.to_string()}\n")
 
+#     emphysema_ages_cross = pd.crosstab(columns=df['patient_sex_desc'], values=df['age'].astype(float), aggfunc='mean', index=emphysema_condition)
+#     with open(R"output_files/emphysema.txt", 'a') as filehandler:
+#             filehandler.write(f"Mean age across genders in cases of emphysema:\n{emphysema_ages_cross.to_string()}\n") 
+
+#     packyears_good_values = df[df['patientcard_packyears_packyearsvalue'].astype(float) > 0]
+
+#     emphysema_packyears_values_cross = pd.crosstab(columns=df['patient_sex_desc'], values=packyears_good_values['patientcard_packyears_packyearsvalue'].astype(float), aggfunc='mean', index=emphysema_condition)
+#     with open(R"output_files/emphysema.txt", 'a') as filehandler:
+#             filehandler.write(f"Mean packyears value across genders in case of emphysema:\n{emphysema_packyears_values_cross.to_string()}\n")
+
+#     cancer_ages_cross = pd.crosstab(columns=diagnosed_patients['patient_sex_desc'], values=diagnosed_patients['age'].astype(float), aggfunc='mean', index='has_cancer')
+#     with open(R"output_files/cancer.txt", 'w') as filehandler:
+#             filehandler.write(f"Mean age across genders in cases of cancer:\n{cancer_ages_cross.to_string()}\n")
+    
+#     cancer_packyears_cross = pd.crosstab(columns=diagnosed_patients['patient_sex_desc'], values=diagnosed_patients['patientcard_packyears_packyearsvalue'].astype(float), aggfunc='mean', index='has_cancer')
+#     with open(R"output_files/cancer.txt", 'a') as filehandler:
+#             filehandler.write(f"Mean packyears value across genders in cases of cancer:\n{cancer_packyears_cross.to_string()}\n")
+
+    df.to_csv("output_files/cancer_analysis_base.csv")
 
 if __name__ == "__main__":
 
@@ -114,4 +143,4 @@ if __name__ == "__main__":
 
     modified_ndtk_data = modify(df_ndtk, df)
 
-    ratios(modified_ndtk_data, diagnosed_w_cancer)
+    emphysema_analysis(modified_ndtk_data, diagnosed_w_cancer)
