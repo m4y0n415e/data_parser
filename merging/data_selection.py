@@ -1,12 +1,12 @@
 import argparse
 import pandas as pd
 import numpy as np
-import chardet
+from chardet.universaldetector import UniversalDetector
 from columns_selection import *
 
 def detect_encoding(file_path):
     with open(file_path, 'rb') as file:
-        detector = chardet.detector.UniversalDetector()
+        detector = UniversalDetector()
         for line in file:
             detector.feed(line)
             if detector.done:
@@ -100,6 +100,12 @@ def add_time_since_last_visit(df, df_ndtk, df_consultation):
        df_consultation = pd.merge(df_consultation, consultation[['order_id', 'patient_globalentryid', 'days_since_last_visit']],
         on=['order_id', 'patient_globalentryid'],
         how='inner')
+
+       df_consultation.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
+
+       df_consultation['days_since_consult_visit'] = (df_consultation['reportdate'] - (df_consultation.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
+
+       df_consultation['visit_sequence'] = df_consultation.groupby('patient_globalentryid')['reportdate'].cumcount() + 1
 
        df_ndtk.fillna({'days_since_last_visit': 0}, inplace=True)
        df_consultation.fillna({'days_since_last_visit': 0}, inplace=True)

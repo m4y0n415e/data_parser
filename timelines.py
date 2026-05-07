@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
+from sklearn import set_config
 from encoding import detect_encoding
 
 def load(input):
@@ -22,12 +23,12 @@ if __name__ == "__main__":
 
     parser.add_argument(
             '-i', '--initial', 
-            required=True
+            required=False
     )
 
     parser.add_argument(
             '-n', '--ndtk',
-            required=True
+            required=False
     )
 
     parser.add_argument(
@@ -41,14 +42,19 @@ if __name__ == "__main__":
     # df_ndtk = load(args.ndtk)
     df_consult = load(args.consultation)
 
+    set_config(transform_output="pandas")
 
-    df_consult['days_since_last_visit'].astype(float)
-    df_consult = df_consult.fillna({'days_since_last_visit': 0}, inplace=True)
+    print(max(df_consult['visit_sequence'].astype(int)))
+    no_in_seq = df_consult['visit_sequence'].astype(int) == 4 # 2, 3 and 4 work correctly
 
-    df_data = df_consult['days_since_last_visit'].dropna().to_frame()
-    scaled_df = StandardScaler().fit_transform(df_data)
+    df_consult['reportdate'] = pd.to_datetime(df_consult['reportdate'], format='mixed')
+    df_filtered = df_consult[no_in_seq].copy()
+    df_filtered.fillna({'days_since_consult_visit': 0}, inplace=True)
 
-    X = df_consult['days_since_initial_visit'].values.reshape(-1, 1)
+    # df_data = df_consult['days_since_consult_visit'].dropna().to_frame()
+    scaled_df = StandardScaler().fit_transform(df_filtered['days_since_consult_visit'].to_frame())
+
+    X = df_filtered['days_since_consult_visit'].values.reshape(-1, 1)
 
     inertia = []
     silhouette_scores = []
@@ -61,52 +67,66 @@ if __name__ == "__main__":
         inertia.append(kmeans.inertia_)
         silhouette_scores.append(silhouette_score(X, kmeans.labels_))
 
-    # Plotting the Elbow Method
-    plt.figure(figsize=(12, 5))
-    plt.subplot(1, 2, 1)
-    plt.plot(K_range, inertia, marker='o')
-    plt.title('Elbow Method For Optimal k')
-    plt.xlabel('Number of Clusters (k)')
-    plt.ylabel('Inertia')
+    # # Plotting the Elbow Method
+    # plt.figure(figsize=(12, 5))
+    # plt.subplot(1, 2, 1)
+    # plt.plot(K_range, inertia, marker='o')
+    # plt.title('Elbow Method For Optimal k')
+    # plt.xlabel('Number of Clusters (k)')
+    # plt.ylabel('Inertia')
 
-    # Plotting the Silhouette Scores
-    plt.subplot(1, 2, 2)
-    plt.plot(K_range, silhouette_scores, marker='o')
-    plt.title('Silhouette Score For Optimal k')
-    plt.xlabel('Number of Clusters (k)')
-    plt.ylabel('Silhouette Score')
-    plt.tight_layout()
-    plt.savefig("output_files/clusters_calcultaion.png")
+    # # Plotting the Silhouette Scores
+    # plt.subplot(1, 2, 2)
+    # plt.plot(K_range, silhouette_scores, marker='o')
+    # plt.title('Silhouette Score For Optimal k')
+    # plt.xlabel('Number of Clusters (k)')
+    # plt.ylabel('Silhouette Score')
+    # plt.tight_layout()
+    # plt.savefig("graphs/clusters_calcultaion.png")
 
-    kmeans = KMeans(init='random', n_clusters=5, n_init=10, random_state=1)
+    kmeans = KMeans(init='random', n_clusters=k, n_init=10, random_state=1)
 
     kmeans.fit(scaled_df)
 
-    df_consult['cluster_id'] = kmeans.labels_
+    df_filtered['cluster_id'] = pd.Series(kmeans.labels_)
 
-    point_in_time = kmeans.cluster_centers_.flatten()
+    point_in_time = (df_filtered['days_since_consult_visit'].astype(float).groupby(df_filtered['cluster_id'])).mean()
 
-    df_consult['days_since_initial_visit'] = pd.to_numeric(df_consult['days_since_initial_visit'], errors='coerce')
+    df_filtered['days_since_consult_visit'] = pd.to_numeric(df_filtered['days_since_consult_visit'], errors='coerce')
 
-    frequencies = scaled_df['cluster_id'].value_counts(sort=False)
+    frequencies = df_filtered['cluster_id'].value_counts(sort=False).sort_index(ascending=True)
 
-    standard_dev = scaled_df['days_since_initial_visit'].groupby(scaled_df['cluster_id']).std().fillna(5)
+    standard_dev = df_filtered['days_since_consult_visit'].groupby(df_filtered['cluster_id']).std().fillna(5).sort_index(ascending=True)
+
+    colors = plt.cm.viridis(np.linspace(0, 1, len(point_in_time)))
 
     plt.figure(figsize=(12,6))
 
     plt.bar(x=point_in_time,
     height=frequencies,
-    width=standard_dev,
-    color='steelblue',
+    width=6,
+    xerr=standard_dev,
+    capsize=3,
+    color=colors,
     edgecolor='black',
     alpha=0.8
     )
     
-    plt.title("'Patient visits with k-means temporal nodes")
-    plt.xlabel("Days since initial visit")
-    plt.ylabel("Algorithm assigned cluster id")
+    plt.title("Patient visits with k-means temporal nodes")
+    plt.ylabel("Frequency")
+    plt.xlabel("Point in time of the visits")
 
     plt.show()
+    plt.clf()
+
+    plt.vlines(x=point_in_time, ymin=0, ymax=frequencies.astype(float).mean())
+
+    plt.title("Patient visits with k-means temporal nodes")
+    plt.ylabel("Frequency")
+    plt.xlabel("Point in time of the visits")
+
+    plt.show()
+
 
 
 
