@@ -1,8 +1,17 @@
 import argparse
 import pandas as pd
-from encoding import detect_encoding
-from merging.columns_selection import *
-import pickle
+from chardet import detect
+
+def detect_encoding(file_path):
+    with open(file_path, 'rb') as file:
+        detector = detect.UniversalDetector()
+        for line in file:
+            detector.feed(line)
+            if detector.done:
+                break
+        detector.close()
+    return detector.result['encoding']
+
 
 def load(input):
     coding = detect_encoding(input)
@@ -14,6 +23,11 @@ def load(input):
 
 # tu wrzucić do złożenia w strukturę 'patient_profile' wyselekcjonowaną pod kątem spełniających wszystkie kryteria pacjentów tabelę/tabele danych
 
+def group(df):
+    df_grouped = df.groupby('patient_id').agg('first')
+    return df_grouped
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -24,18 +38,15 @@ if __name__ == "__main__":
             help="Path to the input .csv file to analise"
     )
 
-#     parser.add_argument(
-#             '-i1', '--input1', 
-#             required=True, 
-#             help="Path to the input .csv file to analise"
-#     )
-
-#     parser.add_argument(
-#             '-i2', '--input2', 
-#             required=True, 
-#             help="Path to the input .csv file to analise"
-#     )
-
     args = parser.parse_args()
 
     df = load(args.input)
+
+    df.sort_values(['patient_globalentryid', 'reportdate'])
+
+    df['patient_id'] = df['patient_globalentrid'].factorize()
+
+    print(df['patient_id'])
+
+    # df = group(df)
+

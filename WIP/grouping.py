@@ -1,6 +1,6 @@
 import pandas as pd
 
-filepath = (R"data\Metadane - opisy NDTK (rpt_ndtk_reports).csv")
+filepath = (R"../input_files/Metadane - opisy NDTK (rpt_ndtk_reports).csv")
 
 try:
     df_NDTK = pd.read_csv(filepath, dtype=str)
@@ -8,14 +8,10 @@ except FileNotFoundError:
     print("File not found.")
 
 
-# NDTK_short = df_NDTK.iloc[:20]
-df_NDTK = df_NDTK.sort_values(by=['reportdate'], )
+df_NDTK = df_NDTK.sort_values(by=['reportdate'])
 
-NDTK_grouped = (df_NDTK.groupby('patient_globalentryid')
-    .agg({"reportdate": list,
-         "report_title": list,
-         "report_items_0_items_0_value":list,
-         "nodules_noduleslist_nodulnumber": list,
+NDTK_grouped = (df_NDTK.groupby(['patient_globalentryid', "reportdate",'report_title'])
+    .agg({"nodules_noduleslist_nodulnumber": list,
          "nodules_noduleslist_spiculated": list,
         "nodules_noduleslist_smoothedges": list,
         "nodules_noduleslist_calcifications": list,
@@ -43,4 +39,4 @@ NDTK_grouped = (df_NDTK.groupby('patient_globalentryid')
 })
 )
 
-print(NDTK_grouped)
+NDTK_grouped.to_csv('../output_files/test_ndtk.csv')
