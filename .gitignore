@@ -30,6 +30,7 @@ data_post/
 output_files/
 input_files/
 graphs/
+test.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

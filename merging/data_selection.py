@@ -101,11 +101,13 @@ def add_time_since_last_visit(df, df_ndtk, df_consultation):
         on=['order_id', 'patient_globalentryid'],
         how='inner')
 
-       df_consultation.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
+       df_ndtk.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
 
-       df_consultation['days_since_consult_visit'] = (df_consultation['reportdate'] - (df_consultation.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
+       df_ndtk['days_since_ldct_visit'] = (df_ndtk['reportdate'] - (df_ndtk.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
 
-       df_consultation['visit_sequence'] = df_consultation.groupby('patient_globalentryid')['reportdate'].cumcount() + 1
+       df_ndtk['visit_sequence'] = df_ndtk.groupby('patient_globalentryid')['reportdate'].cumcount() + 1
+
+       df_ndtk.fillna({'days_since_ldct_visit': 0}, inplace=True)
 
        df_ndtk.fillna({'days_since_last_visit': 0}, inplace=True)
        df_consultation.fillna({'days_since_last_visit': 0}, inplace=True)
@@ -116,6 +118,7 @@ def add_time_since_program_start(df, df_ndtk, df_consultation):
         df.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
         baseline_dates = df.groupby('patient_globalentryid')['reportdate'].transform('min')
         df['days_since_initial_visit'] = (df['reportdate'] - baseline_dates).dt.days
+
         ndtk = df[df['report_title'] == 'SR_NDTK']
         consultation = df[df['report_title'] == 'SR_WIZYTA_WYNIKOWA']
 
@@ -126,8 +129,13 @@ def add_time_since_program_start(df, df_ndtk, df_consultation):
          on=['order_id', 'patient_globalentryid'],
          how='inner')
 
+        baseline_ldct_dates = df_ndtk.groupby('patient_globalentryid')['reportdate'].transform('min')
+
+        df_ndtk['days_since_initial_visit_in_ldct'] = (df_ndtk['reportdate'] - baseline_ldct_dates).dt.days
+
         df_ndtk.fillna({'days_since_initial_visit': 0}, inplace=True)
         df_consultation.fillna({'days_since_initial_visit': 0}, inplace=True)
+        df_ndtk.fillna({'days_since_initial_visit_in_ldct': 0}, inplace=True)
 
         return df_ndtk, df_consultation
 
