@@ -66,7 +66,7 @@ def calculate_bic(df_ldct):
     plt.title('BIC values')
     plt.xlabel('N-components')
     plt.ylabel('BIC')
-    plt.show()
+    # plt.show()
 
     plt.clf()
     return np.argmin(bic_scores) + 1
@@ -77,44 +77,65 @@ def create_GMM(df_ldct):
     model_4.fit(X)
     print(model_4.means_)
 
-    # plt.hist(X, density=True)
-    x_synthetic = np.linspace(0, 800, 1000)
+    order = model_4.means_
 
-    x_new = x_synthetic.reshape(-1, 1)
+    flat_means = order.flatten()
 
-    probability_matrix = model_4.predict_proba(x_new) # predict_proba basically uses PDF to determine probability of an x belonging to a Gaussian function n
-    print(probability_matrix[400])
+    sorted_indexes = np.argsort(flat_means)
 
-    probability_matrix_slice0 = probability_matrix[:, 3]
-    probability_matrix_slice1 = probability_matrix[:, 0]
+    sorted_means = model_4.means_.flatten()[sorted_indexes]
+    sorted_covs = model_4.covariances_.flatten()[sorted_indexes]
+    sorted_weights = model_4.weights_.flatten()[sorted_indexes]
 
-    condition = probability_matrix_slice1 > probability_matrix_slice0    
+    st_dev = np.sqrt(sorted_covs)
+    timeline = np.linspace(0, sorted_means[3] + 3 * st_dev[3], 1000)
+    timeline_2d = timeline.reshape(-1, 1)
+
+    probability_matrix_np = model_4.predict_proba(timeline_2d)[:, sorted_indexes] # predict_proba basically uses PDF to determine probability of an x belonging to a Gaussian function n
+
     max_el = []
-    max_el.append(np.argmax(condition))
 
-    probability_matrix_slice2 = probability_matrix[:, 2]
-    condition = probability_matrix_slice2 > probability_matrix_slice1
-    max_el.append(np.argmax(condition))
+    delta_01 = probability_matrix_np[:, 1] - probability_matrix_np[:, 0]
+    indices_01 = np.where(np.diff(np.sign(delta_01)) != 0)[0]
+    coords_01 = timeline[indices_01]
+    mask_01 = (coords_01 >= sorted_means[0]) & (coords_01 <= sorted_means[1])
+    valid_index_01 = indices_01[mask_01][0]
+    max_el.append(valid_index_01)
 
-    probability_matrix_slice3 = probability_matrix[:, 1]
-    condition = (probability_matrix_slice2 > probability_matrix_slice3) & (x_synthetic > 383)
-    max_el.append(np.argmax(condition))
+    delta_12 = probability_matrix_np[:, 2] - probability_matrix_np[:, 1]
+    indices_12 = np.where(np.diff(np.sign(delta_12)) != 0)[0]
+    coords_12 = timeline[indices_12]
+    mask_12 = (coords_12 >= sorted_means[1]) & (coords_12 <= sorted_means[2])
+    valid_index_12 = indices_12[mask_12][0]
+    max_el.append(valid_index_12)
 
-    print(x_synthetic[max_el])
+    delta_23 = probability_matrix_np[:, 3] - probability_matrix_np[:, 2]
+    indices_23 = np.where(np.diff(np.sign(delta_23)) != 0)[0]
+    coords_23 = timeline[indices_23]
+    mask_23 = (coords_23 >= sorted_means[2]) & (coords_23 <= sorted_means[3])
+    valid_index_23 = indices_23[mask_23][0]
+    max_el.append(valid_index_23)
 
-    st_dev = np.sqrt(model_4.covariances_.flatten())
-    timeline = np.linspace(0, 729+3*st_dev[1], 1000)
+    print(timeline[max_el])
 
-    pdf_values_1 = norm. pdf(timeline, loc=model_4.means_.flatten()[2], scale=st_dev[2]) * model_4.weights_[2]
-    pdf_values_2 = norm.pdf(timeline, loc=model_4.means_.flatten()[1], scale=st_dev[1]) * model_4.weights_[1]
-    pdf_values_3 = norm.pdf(timeline, loc=model_4.means_.flatten()[0], scale=st_dev[0]) * model_4.weights_[0]
-    plt.plot(timeline, pdf_values_1, label="Distribution", color="blue")
-    plt.plot(timeline, pdf_values_2, color='red')
-    plt.plot(timeline, pdf_values_3, color='yellow')
+    boundary_coordinates = timeline[max_el]
+
+    pdf_values_1 = norm.pdf(timeline, loc=sorted_means[1], scale=st_dev[1]) * sorted_weights[1]
+    pdf_values_2 = norm.pdf(timeline, loc=sorted_means[2], scale=st_dev[2]) * sorted_weights[2]
+    pdf_values_3 = norm.pdf(timeline, loc=sorted_means[3], scale=st_dev[3]) * sorted_weights[3]
+
+    plt.plot(timeline, pdf_values_1, label="Component 1", color="blue")
+    plt.plot(timeline, pdf_values_2, label="Component 2", color="red")
+    plt.plot(timeline, pdf_values_3, label="Component 3", color="yellow")
     plt.title("PDF of xyz Distribution")
     plt.xlabel("x")
     plt.ylabel("Probability Density")
+    plt.legend()
     plt.show()
+
+    # potem GMM od kazdego punktu do punktu (-11-1, 1-2, 2-0)
+
+    # histogram porównać z pdf-em
 
     # roots = optimize.fsolve(, 505) # <- calculate weighted height for x and put in the difference of these heights for 2 and 1 into the first parameter 
 
