@@ -12,39 +12,47 @@ def load(input):
     return df
 
 def extract_diagnosed(df, cancers):
+# function that extracts the data of the cancer-diagnosed patients into a separate table, using the full ndtk.csv data table and the 'Acession Number' key
+# to match the patients
     diagnosed_w = df[df['externalbusinessid_client'].isin(cancers['Accession_Number'])]
-    diagnosed_w.to_csv("diagnosed_with_cancer_data")
+    # diagnosed_w.to_csv("diagnosed_with_cancer_data")
     diagnosed_w = diagnosed_w.drop_duplicates("patient_globalentryid")
     
     return diagnosed_w
 
 
 def modify(ndtk, ndtk_unmodified):
+# function that serves to modify the ndtk.csv file, so it contains the 'age' and 'packyears value' columns (which only appear once in the initial visit data)
     ndtk_unmodified['age'] = ndtk['age']
     ndtk_unmodified['patientcard_packyears_packyearsvalue'] = ndtk['patientcard_packyears_packyearsvalue']
 
     modified_ndtk = ndtk_unmodified[ndtk_unmodified['patient_globalentryid'].isin(ndtk['patient_globalentryid'])].drop_duplicates('patient_globalentryid')
     modified_ndtk = modified_ndtk.drop_duplicates('patient_globalentryid')
 
-    modified_ndtk.to_csv("temp1.csv")
+    modified_ndtk.to_csv("ndtk_data_with_age_and_packyears.csv")
 
     return modified_ndtk
 
 
 def emphysema_analysis(df, cancers):
+# the patients who have been deleted in the process of clearing the ndtk.csv data table (too little data, etc.) are included in the dataframe for analysis
     exceptions = ['8d94c658-2da7-412e-b926-f53fa591d6ca', 'ebe50e50-1b59-4523-8b80-1e183ac1eded', 'b11ce3d3-4340-42f2-95ea-979643081852']
     temp = cancers[cancers['patient_globalentryid'].isin(exceptions)]
     df = pd.concat([df, temp], ignore_index=True)
 
+# only patients with any data on emphysema are included (null data throws off the result)
     df = df[df['emphysema_emphysema'].notna()]
 
     # df_temp = df[~df['emphysema_emphysema'].isna()]
     print(df['patient_sex_desc'].value_counts())
 
+# all emphysema descriptions that indicate "present" are combined into one group
     emphysema_desc = ["moderate", "mild", "severe"]
     emphysema_present_total = df['emphysema_emphysema'].value_counts()
     print(emphysema_present_total)
     sum_of_present_total = emphysema_present_total[emphysema_desc].sum()
+
+# no emphysema described as "notVisible"
     no_emphysema = emphysema_present_total["notVisible"]
 
     with open(R"output_files/emphysema.txt", 'w') as filehandler:
@@ -54,7 +62,7 @@ def emphysema_analysis(df, cancers):
 
     is_diagnosed = df['patient_globalentryid'].isin(cancers['patient_globalentryid'])
 
-
+# added a new column, with a True/False variable to indicate whether the patient has cancer or not
     df['is_diagnosed'] = is_diagnosed
     
     # diagnosed_patients_temp = diagnosed_patients[~diagnosed_patients['emphysema_emphysema'].isna()]

@@ -92,19 +92,6 @@ def run_intergender_t_test(df, status_filter, variable):
 from scipy.stats import chi2_contingency
 
 def run_universal_chi(df, group_col, target_col):
-    """
-    df: dataframe (df_complete)
-    group_col: The 'independent' variable (e.g., 'patient_sex_desc')
-    target_col: The 'dependent' variable (e.g., 'emphysema_present' or 'is_diagnosed')
-    """
-    # 1. Create the Contingency Table (Observed Counts)
-    ct = pd.crosstab(df[group_col], df[target_col])
-    
-    # 2. Run the Chi-Square Test
-    chi2, p_val, dof, expected = chi2_contingency(ct)
-    
-    # 3. Calculate Percentages (Normalization)
-    # This shows what % of each group has the trait
     pct = ct.div(ct.sum(axis=1), axis=0) * 100
     
     with open("output_files/comorbidity_analysis.txt", "a") as f:
@@ -120,11 +107,6 @@ def run_universal_chi(df, group_col, target_col):
     return ct, p_val
 
 def get_binary_report(df, diag_column, variable_column):
-    """
-    df: your dataframe (e.g., df_complete)
-    diag_column: the binary indicator (e.g., 'is_diagnosed' or 'emphysema_present')
-    variable_column: the value to measure (e.g., 'age' or 'patientcard_packyears_packyearsvalue')
-    """
     temp_df = df.copy()
     temp_df[variable_column] = pd.to_numeric(temp_df[variable_column], errors='coerce')
     
@@ -163,17 +145,18 @@ def analyse(df):
 
     data = pd.to_numeric(df_no_dup['patient_sex_shortdesc'], errors='coerce').dropna()
 
+# statistics of the cancer group - age and packyears value, grouped by sex and cancer presence
     cancer_stats = df_no_dup.groupby(['is_diagnosed', 'patient_sex_desc']).agg({
         'age': get_stats_with_ci,
         'patientcard_packyears_packyearsvalue': get_stats_with_ci
     }).unstack()
 
+# statistics of the emphysema group - age and packyears value, grouped by sex and emphysema presence
     emph_stats = df_no_dup.groupby(['emphysema_emphysema', 'patient_sex_desc']).agg({
         'age': get_stats_with_ci,
         'patientcard_packyears_packyearsvalue': get_stats_with_ci
     }).unstack()
 
-  
     with open("output_files/cancer_stats_final.txt", "w") as f:
         f.write("Cancer statistics (Mean [95% CI]): \n")
         f.write(cancer_stats.to_string())
@@ -192,7 +175,6 @@ def analyse(df):
         (df_complete['is_diagnosed'] == True)  & (df_complete['emphysema_present'] == 0), 
         (df_complete['is_diagnosed'] == True)  & (df_complete['emphysema_present'] == 1) 
     ]
-
 
     choices = ['Neither', 'Emphysema only', 'Cancer only', 'Both']
     df_complete['comorbidity_status'] = np.select(conditions, choices, default='Unknown')   
@@ -273,13 +255,13 @@ def analyse(df):
         f.write(or_table.to_string(index=False))
 
 
-    # 1. Are men more likely to get emphysema than women?
+    # Question: Are men more likely to get emphysema than women?
     run_universal_chi(df_complete, 'patient_sex_desc', 'emphysema_present')
 
-    # 2. Are men more likely to get cancer than women?
+    # Question: Are men more likely to get cancer than women?
     run_universal_chi(df_complete, 'patient_sex_desc', 'is_diagnosed')
 
-    # 3. Is there a link between having emphysema and having cancer? (The "General Link")
+    # Question: Is there a link between having emphysema and having cancer?
     run_universal_chi(df_complete, 'emphysema_present', 'is_diagnosed')
 
 

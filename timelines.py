@@ -19,70 +19,50 @@ def load(input):
     return df
 
 def draw_graphs(scaled_df, df_filtered):
+    # initializing the KMeans model to assign clusters for every group - draft version
     kmeans = KMeans(init='random', n_clusters=3, n_init=10, random_state=1)
-
     kmeans.fit(scaled_df)
 
     df_filtered['cluster_id'] = pd.Series(kmeans.labels_)
-
     point_in_time = (df_filtered['days_since_ldct_visit'].astype(float).groupby(df_filtered['cluster_id'])).mean()
-
     df_filtered['days_since_ldct_visit'] = pd.to_numeric(df_filtered['days_since_ldct_visit'], errors='coerce')
-
     frequencies = df_filtered['cluster_id'].value_counts(sort=False).sort_index(ascending=True)
 
+    # v-line plot of the cluster centers
     plt.vlines(x=point_in_time, ymin=0, ymax=frequencies.astype(float).mean())
 
     plt.title("Patient visits with k-means temporal nodes")
     plt.ylabel("Frequency")
-    plt.xlabel("Point in time of the visits")
+    plt.xlabel("Time cluster of the visits")
     
     plt.savefig(R"graphs/kmeans_interval_lines.png")
-
     plt.clf()
 
+    # kde plot of the days clusters (concentrated around 0, 6 mo, and 12 mo timestamps)
     x = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
     df_ldct['days_since_initial_visit_in_ldct'].astype(float).plot.kde(bw_method=0.05)
-
     plt.xticks(np.arange(min(x), max(x)+1, 30.0), rotation=45)
 
     plt.savefig(R"graphs/kde_days.png")
-
     plt.clf()
-
-def calculate_bic(df_ldct):
-    x = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
-    threshold = x.quantile(0.95)
-    x_clean = x[x <= threshold]
-    X = x_clean.values.reshape(-1,1)
-    bic_scores = []
-
-    for k in range(1,12):
-        model = GaussianMixture(n_components=k, random_state=0)
-        model = model.fit(X)
-        bic_scores.append(model.bic(X))
-
-    plt.plot(range(1,12), bic_scores, marker='o')
-    plt.title('BIC values')
-    plt.xlabel('N-components')
-    plt.ylabel('BIC')
-    # plt.show()
-
-    plt.clf()
-    return np.argmin(bic_scores) + 1
     
+
+def knee_point_calculation():
+    return 0
+
+
 def create_GMM(df_ldct):
+    # creating the GMM for 4 components (based on the BIC score)
     X = df_ldct['days_since_initial_visit_in_ldct'].astype(float).values.reshape(-1,1)
     model_4 = GaussianMixture(n_components=4, random_state=0, n_init=10)
     model_4.fit(X)
-    print(model_4.means_)
 
+    # sorting the indexes into a proper sequence
     order = model_4.means_
-
     flat_means = order.flatten()
-
     sorted_indexes = np.argsort(flat_means)
 
+    # sorting the means, covariances and weights
     sorted_means = model_4.means_.flatten()[sorted_indexes]
     sorted_covs = model_4.covariances_.flatten()[sorted_indexes]
     sorted_weights = model_4.weights_.flatten()[sorted_indexes]
@@ -91,10 +71,12 @@ def create_GMM(df_ldct):
     timeline = np.linspace(0, sorted_means[3] + 3 * st_dev[3], 1000)
     timeline_2d = timeline.reshape(-1, 1)
 
-    probability_matrix_np = model_4.predict_proba(timeline_2d)[:, sorted_indexes] # predict_proba basically uses PDF to determine probability of an x belonging to a Gaussian function n
+    probability_matrix_np = model_4.predict_proba(timeline_2d)[:, sorted_indexes] 
+    # predict_proba basically uses PDF to determine probability of an x belonging to a Gaussian function n
 
     max_el = []
 
+    # creating the probability matrix for each components - which values fit best into a component Gaussian
     delta_01 = probability_matrix_np[:, 1] - probability_matrix_np[:, 0]
     indices_01 = np.where(np.diff(np.sign(delta_01)) != 0)[0]
     coords_01 = timeline[indices_01]
@@ -116,10 +98,12 @@ def create_GMM(df_ldct):
     valid_index_23 = indices_23[mask_23][0]
     max_el.append(valid_index_23)
 
+    # printing the maximum elements of each of these functions, which indicate that it is an intersection point
     print(timeline[max_el])
 
     boundary_coordinates = timeline[max_el]
 
+    # calculating the values of a PDF algirithm, and plotting the distribution
     pdf_values_1 = norm.pdf(timeline, loc=sorted_means[1], scale=st_dev[1]) * sorted_weights[1]
     pdf_values_2 = norm.pdf(timeline, loc=sorted_means[2], scale=st_dev[2]) * sorted_weights[2]
     pdf_values_3 = norm.pdf(timeline, loc=sorted_means[3], scale=st_dev[3]) * sorted_weights[3]
@@ -131,9 +115,10 @@ def create_GMM(df_ldct):
     plt.xlabel("x")
     plt.ylabel("Probability Density")
     plt.legend()
-    plt.show()
+    # plt.show()
 
-    # potem GMM od kazdego punktu do punktu (-11-1, 1-2, 2-0)
+    # initializaing the GMM algorithm for the values in-between each intersection point (0-1, 1-2, 2-0)    
+
 
     # histogram porównać z pdf-em
 
@@ -165,11 +150,10 @@ if __name__ == "__main__":
     scaled_df = StandardScaler().fit_transform(df_filtered['days_since_ldct_visit'].to_frame())
 
     draw_graphs(scaled_df, df_filtered)
-   
-    opt_k = calculate_bic(df_ldct)
 
-    create_GMM(df_ldct)
+    # optimal_k = knee_point_calculation()
    
+    create_GMM(df_ldct)
 
     # Conclude with one GMM for the second? group
 
