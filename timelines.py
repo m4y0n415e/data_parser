@@ -3,12 +3,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import PowerTransformer
 from sklearn import set_config
 from sklearn.mixture import GaussianMixture
 from statsmodels.tsa.ar_model import AutoReg
 from encoding import detect_encoding
 from scipy.stats import norm
+from kneed import KneeLocator, DataGenerator
 
 def load(input):
     coding = detect_encoding(input)
@@ -18,161 +19,201 @@ def load(input):
             print("File not found.")
     return df
 
-def draw_graphs(scaled_df, df_filtered):
-    kmeans = KMeans(init='random', n_clusters=3, n_init=10, random_state=1)
-
-    kmeans.fit(scaled_df)
-
-    df_filtered['cluster_id'] = pd.Series(kmeans.labels_)
-
-    point_in_time = (df_filtered['days_since_ldct_visit'].astype(float).groupby(df_filtered['cluster_id'])).mean()
-
-    df_filtered['days_since_ldct_visit'] = pd.to_numeric(df_filtered['days_since_ldct_visit'], errors='coerce')
-
-    frequencies = df_filtered['cluster_id'].value_counts(sort=False).sort_index(ascending=True)
-
-    plt.vlines(x=point_in_time, ymin=0, ymax=frequencies.astype(float).mean())
-
-    plt.title("Patient visits with k-means temporal nodes")
-    plt.ylabel("Frequency")
-    plt.xlabel("Point in time of the visits")
-    
-    plt.savefig(R"graphs/kmeans_interval_lines.png")
-
-    plt.clf()
-
+def draw_graphs(df_ldct):
+    # kde plot of the days clusters (concentrated around 0, 6 mo, and 12 mo timestamps)
     x = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
     df_ldct['days_since_initial_visit_in_ldct'].astype(float).plot.kde(bw_method=0.05)
-
     plt.xticks(np.arange(min(x), max(x)+1, 30.0), rotation=45)
 
     plt.savefig(R"graphs/kde_days.png")
-
     plt.clf()
-
-def calculate_bic(df_ldct):
-    x = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
-    threshold = x.quantile(0.95)
-    x_clean = x[x <= threshold]
-    X = x_clean.values.reshape(-1,1)
-    bic_scores = []
-
-    for k in range(1,12):
-        model = GaussianMixture(n_components=k, random_state=0)
-        model = model.fit(X)
-        bic_scores.append(model.bic(X))
-
-    plt.plot(range(1,12), bic_scores, marker='o')
-    plt.title('BIC values')
-    plt.xlabel('N-components')
-    plt.ylabel('BIC')
-    # plt.show()
-
-    plt.clf()
-    return np.argmin(bic_scores) + 1
     
-def create_GMM(df_ldct):
-    X = df_ldct['days_since_initial_visit_in_ldct'].astype(float).values.reshape(-1,1)
-    model_4 = GaussianMixture(n_components=4, random_state=0, n_init=10)
-    model_4.fit(X)
-    print(model_4.means_)
+def pipeline(x_data, collected_dates):
+    if (x_data.shape[0] < 2):
+        return collected_dates
 
-    order = model_4.means_
+    if (x_data.shape[0] > 11):
+        max_clusters = 11
+    else: max_clusters = x_data.shape[0]
 
+    bic_values = calculate_bic_for_gmm(x_data, max_clusters)
+
+    optimal_k = knee_point_calculation(max_clusters, bic_values)
+   
+    model = create_GMM(x_data, optimal_k, transformer)
+
+    # sorting the indexes into a proper sequence
+    order = model.means_
     flat_means = order.flatten()
-
     sorted_indexes = np.argsort(flat_means)
 
-    sorted_means = model_4.means_.flatten()[sorted_indexes]
-    sorted_covs = model_4.covariances_.flatten()[sorted_indexes]
-    sorted_weights = model_4.weights_.flatten()[sorted_indexes]
+    # sorting the means, covariances and weights
+    sorted_means = model.means_.flatten()[sorted_indexes]
+    sorted_covs = model.covariances_.flatten()[sorted_indexes]
+    sorted_weights = model.weights_.flatten()[sorted_indexes]
 
+    collected_dates = np.append(collected_dates, sorted_means)
+
+    if (optimal_k == 1):
+        return collected_dates
+
+    # calculating the standard deviation and the "timeline"
     st_dev = np.sqrt(sorted_covs)
-    timeline = np.linspace(0, sorted_means[3] + 3 * st_dev[3], 1000)
+    timeline = np.linspace(sorted_means[0] - 3 * st_dev[0], sorted_means[-1] + 3 * st_dev[-1], 1000)
     timeline_2d = timeline.reshape(-1, 1)
 
-    probability_matrix_np = model_4.predict_proba(timeline_2d)[:, sorted_indexes] # predict_proba basically uses PDF to determine probability of an x belonging to a Gaussian function n
+    # creating the probability matrix for each components
+    probability_matrix_np = model.predict_proba(timeline_2d)[:, sorted_indexes] 
+    # predict_proba basically uses PDF to determine probability of an x belonging to a Gaussian function n
+
 
     max_el = []
+    
+    for i in range(0, optimal_k - 1):
+        delta = probability_matrix_np[:, i+1] - probability_matrix_np[:, i]
+        indices = np.where(np.diff(np.sign(delta)) != 0)[0]
+        if indices.size > 0: 
+            max_el.append(indices[np.argmin(np.abs(timeline[indices] - (sorted_means[i] + sorted_means[i+1]) / 2))])
+        else: 
+            max_el.append(np.argmin(np.abs(timeline - (sorted_means[i] + sorted_means[i + 1]) / 2)))
 
-    delta_01 = probability_matrix_np[:, 1] - probability_matrix_np[:, 0]
-    indices_01 = np.where(np.diff(np.sign(delta_01)) != 0)[0]
-    coords_01 = timeline[indices_01]
-    mask_01 = (coords_01 >= sorted_means[0]) & (coords_01 <= sorted_means[1])
-    valid_index_01 = indices_01[mask_01][0]
-    max_el.append(valid_index_01)
-
-    delta_12 = probability_matrix_np[:, 2] - probability_matrix_np[:, 1]
-    indices_12 = np.where(np.diff(np.sign(delta_12)) != 0)[0]
-    coords_12 = timeline[indices_12]
-    mask_12 = (coords_12 >= sorted_means[1]) & (coords_12 <= sorted_means[2])
-    valid_index_12 = indices_12[mask_12][0]
-    max_el.append(valid_index_12)
-
-    delta_23 = probability_matrix_np[:, 3] - probability_matrix_np[:, 2]
-    indices_23 = np.where(np.diff(np.sign(delta_23)) != 0)[0]
-    coords_23 = timeline[indices_23]
-    mask_23 = (coords_23 >= sorted_means[2]) & (coords_23 <= sorted_means[3])
-    valid_index_23 = indices_23[mask_23][0]
-    max_el.append(valid_index_23)
-
-    print(timeline[max_el])
-
+    # the maximum elements of each of these functions indicate that it is an intersection point
+    # print(timeline[max_el])
     boundary_coordinates = timeline[max_el]
 
-    pdf_values_1 = norm.pdf(timeline, loc=sorted_means[1], scale=st_dev[1]) * sorted_weights[1]
-    pdf_values_2 = norm.pdf(timeline, loc=sorted_means[2], scale=st_dev[2]) * sorted_weights[2]
-    pdf_values_3 = norm.pdf(timeline, loc=sorted_means[3], scale=st_dev[3]) * sorted_weights[3]
+    # drawing a pdf distribution of the timeline Gaussian functions
+    pdf_distribution_hist(timeline, sorted_means, st_dev, sorted_weights, optimal_k, transformed_df, transformer)
 
-    plt.plot(timeline, pdf_values_1, label="Component 1", color="blue")
-    plt.plot(timeline, pdf_values_2, label="Component 2", color="red")
-    plt.plot(timeline, pdf_values_3, label="Component 3", color="yellow")
-    plt.title("PDF of xyz Distribution")
-    plt.xlabel("x")
-    plt.ylabel("Probability Density")
-    plt.legend()
-    plt.show()
+    # initializaing the GMM algorithm for the values in-between each intersection point
+    boundary_coordinates = np.insert(boundary_coordinates, 0, -np.inf)
+    boundary_coordinates = np.append(boundary_coordinates, np.inf)
 
-    # potem GMM od kazdego punktu do punktu (-11-1, 1-2, 2-0)
+# kontynuacja od tego momentu!!!!
+    for i in range(1, optimal_k + 1):
+        x = x_data[(x_data['days_since_initial_visit_in_ldct'] > boundary_coordinates[i-1]) & (x_data['days_since_initial_visit_in_ldct'] < boundary_coordinates[i])]
+        collected_dates = pipeline(x, collected_dates)
 
-    # histogram porównać z pdf-em
+    return collected_dates
 
     # roots = optimize.fsolve(, 505) # <- calculate weighted height for x and put in the difference of these heights for 2 and 1 into the first parameter 
 
 
+
+def calculate_bic_for_gmm(X, max_clusters):
+    bic_values = []
+    for n in range(1, max_clusters + 1):
+        gmm = GaussianMixture(n_components=n, random_state=0).fit(X)
+        bic_values.append(gmm.bic(X))
+
+    # creating a BIC plot to visualize the "knee" point
+    plt.plot(range(1,12), bic_values, marker='o')
+    plt.title('BIC values')
+    plt.xlabel('N-components')
+    plt.ylabel('BIC')
+    # plt.show()
+    plt.clf() 
+
+    return bic_values
+
+
+def knee_point_calculation(max_clusters, bic_values):
+    # kneedle = KneeLocator(range(1, max_clusters + 1), bic_values, S=20, curve='convex', direction='decreasing')        
+    # knees.append(kneedle.knee)
+    # norm_knees.append(kneedle.norm_knee)
+    
+    diff_table = np.diff(bic_values, n=1)
+    minimum = np.amin(diff_table)
+
+    threshold = 0.01 * minimum
+    knee_point = 0
+    for index in range(1, max_clusters - 1):
+        if (diff_table[index] > threshold):
+            knee_point = index + 1
+            break
+
+    return knee_point
+
+
+def pdf_distribution_hist(timeline, sorted_means, st_dev, sorted_weights, optimal_k, transformed_df, transformer):
+    # calculating the values of a PDF algirithm, and plotting the distribution
+    for i in range(0, optimal_k):
+        pdf_values = norm.pdf(timeline, loc=sorted_means[i], scale=st_dev[i]) * sorted_weights[i]
+        label = "Component " + str(i)
+        plt.plot(timeline, pdf_values, label=label)
+
+    plt.title("PDF of the visit dates distribution")
+    plt.xlabel("x")
+    plt.ylabel("Probability Density")
+    plt.legend()
+
+    # code for creating a histogram of the same data
+    plt.hist(transformed_df, bins='fd', density=True)
+    x_values = plt.xticks()[0]
+    plt.xticks(ticks=x_values, labels=np.round(transformer.inverse_transform(x_values.reshape(-1,1)).flatten()))
+    plt.show()
+    plt.clf()
+
+
+def create_GMM(transformed_df, optimal_k, transformer): # continue changes from here - making the code universal for the gmm model, with the indexes below
+    # creating the GMM for the optimal number of components (based on the BIC score)
+    X = transformed_df.astype(float)
+    model = GaussianMixture(n_components=optimal_k, random_state=0, n_init=10)
+    model.fit(X)
+
+    return model
+
+
 if __name__ == "__main__":
+    TEST_MODE = True
 
-    parser = argparse.ArgumentParser()
+    if (TEST_MODE):
+        np.random.normal(15, 2, size=(2,60))
+    else:
 
-    parser.add_argument(
-            '-n', '--ldct',
-            required=True
-    )
+        parser = argparse.ArgumentParser()
 
-    args = parser.parse_args()
+        parser.add_argument(
+                '-n', '--ldct',
+                required=True
+        )
 
-    df_ldct = load(args.ldct)
+        args = parser.parse_args()
 
-    set_config(transform_output="pandas")
+        df_ldct = load(args.ldct)
 
-    # print((df_ldct['visit_sequence'].astype(int)).mean()) # something weird happens here
-    no_in_seq = df_ldct['visit_sequence'].astype(int) == 2 # 2, 3 and 4 work correctly
+        set_config(transform_output="pandas")
 
-    df_ldct['reportdate'] = pd.to_datetime(df_ldct['reportdate'], format='mixed')
-    df_filtered = df_ldct[no_in_seq].copy()
-    df_filtered.fillna({'days_since_ldct_visit': 0}, inplace=True)
+        pre_x_data = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
+        # print(pre_x_data.shape)
 
-    scaled_df = StandardScaler().fit_transform(df_filtered['days_since_ldct_visit'].to_frame())
+        x_data = pre_x_data[pre_x_data != 0]
 
-    draw_graphs(scaled_df, df_filtered)
-   
-    opt_k = calculate_bic(df_ldct)
+        with open("number_of_dates.txt", "a") as f:
+            f.write(x_data.value_counts().to_string())
 
-    create_GMM(df_ldct)
-   
+        # setting the threshold for the date counts values (since there are a few high spikes that skew the GMM)
+        q1, q3 = x_data.value_counts().quantile([0.25, 0.75])
+        iqr = q3 - q1
+        upper_bound = q3 + 1.5 * iqr
 
-    # Conclude with one GMM for the second? group
+        correct_threshold = x_data.value_counts()[x_data.value_counts() < upper_bound]
+        x_data_corrected = x_data[x_data.isin(correct_threshold.index)]
 
+        # setting the threshold for BIC score
+        threshold = x_data_corrected.quantile(0.95)
 
+        clean_data = x_data_corrected[x_data_corrected <= threshold].to_frame()
+
+        X_data = clean_data.values.reshape(-1,1)
+
+        transformer = PowerTransformer(method='yeo-johnson')
+
+        transformed_X_data = transformer.fit_transform(X_data)
+
+        collected_dates = []
+
+        pipeline(transformed_X_data, collected_dates)
+
+        # draw_graphs(df_ldct)
 
 
