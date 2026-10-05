@@ -4,11 +4,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import PowerTransformer
+from sklearn.preprocessing import PowerTransformer
 from sklearn import set_config
 from sklearn.mixture import GaussianMixture
 from statsmodels.tsa.ar_model import AutoReg
 from encoding import detect_encoding
 from scipy.stats import norm
+from kneed import KneeLocator, DataGenerator
 from kneed import KneeLocator, DataGenerator
 
 def load(input):
@@ -19,6 +21,8 @@ def load(input):
             print("File not found.")
     return df
 
+def draw_graphs(df_ldct):
+    # kde plot of the days clusters (concentrated around 0, 6 mo, and 12 mo timestamps)
 def draw_graphs(df_ldct):
     # kde plot of the days clusters (concentrated around 0, 6 mo, and 12 mo timestamps)
     x = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
@@ -47,6 +51,10 @@ def pipeline(x_data, collected_dates):
     flat_means = order.flatten()
     sorted_indexes = np.argsort(flat_means)
 
+    # sorting the means, covariances and weights
+    sorted_means = model.means_.flatten()[sorted_indexes]
+    sorted_covs = model.covariances_.flatten()[sorted_indexes]
+    sorted_weights = model.weights_.flatten()[sorted_indexes]
     # sorting the means, covariances and weights
     sorted_means = model.means_.flatten()[sorted_indexes]
     sorted_covs = model.covariances_.flatten()[sorted_indexes]
