@@ -4,13 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import PowerTransformer
-from sklearn.preprocessing import PowerTransformer
 from sklearn import set_config
 from sklearn.mixture import GaussianMixture
 from statsmodels.tsa.ar_model import AutoReg
 from encoding import detect_encoding
 from scipy.stats import norm
-from kneed import KneeLocator, DataGenerator
 from kneed import KneeLocator, DataGenerator
 
 def load(input):
@@ -23,8 +21,6 @@ def load(input):
 
 def draw_graphs(df_ldct):
     # kde plot of the days clusters (concentrated around 0, 6 mo, and 12 mo timestamps)
-def draw_graphs(df_ldct):
-    # kde plot of the days clusters (concentrated around 0, 6 mo, and 12 mo timestamps)
     x = df_ldct['days_since_initial_visit_in_ldct'].astype(float)
     df_ldct['days_since_initial_visit_in_ldct'].astype(float).plot.kde(bw_method=0.05)
     plt.xticks(np.arange(min(x), max(x)+1, 30.0), rotation=45)
@@ -32,9 +28,13 @@ def draw_graphs(df_ldct):
     plt.savefig(R"graphs/kde_days.png")
     plt.clf()
     
-def pipeline(x_data, collected_dates):
-    if (x_data.shape[0] < 2):
+def pipeline(x_data, collected_dates, transformer):
+    # print(len(x_data))
+    if (x_data.nunique().sum() == 1):
         return collected_dates
+
+    if (x_data.shape[0] < 2):
+        return collected_dates            
 
     if (x_data.shape[0] > 11):
         max_clusters = 11
@@ -90,16 +90,19 @@ def pipeline(x_data, collected_dates):
     boundary_coordinates = timeline[max_el]
 
     # drawing a pdf distribution of the timeline Gaussian functions
-    pdf_distribution_hist(timeline, sorted_means, st_dev, sorted_weights, optimal_k, transformed_df, transformer)
+    pdf_distribution_hist(timeline, sorted_means, st_dev, sorted_weights, optimal_k, x_data, transformer)
 
     # initializaing the GMM algorithm for the values in-between each intersection point
     boundary_coordinates = np.insert(boundary_coordinates, 0, -np.inf)
     boundary_coordinates = np.append(boundary_coordinates, np.inf)
 
-# kontynuacja od tego momentu!!!!
     for i in range(1, optimal_k + 1):
         x = x_data[(x_data['days_since_initial_visit_in_ldct'] > boundary_coordinates[i-1]) & (x_data['days_since_initial_visit_in_ldct'] < boundary_coordinates[i])]
-        collected_dates = pipeline(x, collected_dates)
+        if (len(x) == len(x_data)):
+            collected_dates = np.append(collected_dates, transformer.inverse_transform(pd.DataFrame(x.mean())).flatten())
+            break 
+        else:
+            collected_dates = pipeline(x, collected_dates, transformer)
 
     return collected_dates
 
@@ -114,7 +117,7 @@ def calculate_bic_for_gmm(X, max_clusters):
         bic_values.append(gmm.bic(X))
 
     # creating a BIC plot to visualize the "knee" point
-    plt.plot(range(1,12), bic_values, marker='o')
+    plt.plot(range(1,max_clusters + 1), bic_values, marker='o')
     plt.title('BIC values')
     plt.xlabel('N-components')
     plt.ylabel('BIC')
@@ -133,7 +136,7 @@ def knee_point_calculation(max_clusters, bic_values):
     minimum = np.amin(diff_table)
 
     threshold = 0.01 * minimum
-    knee_point = 0
+    knee_point = 1
     for index in range(1, max_clusters - 1):
         if (diff_table[index] > threshold):
             knee_point = index + 1
@@ -175,7 +178,24 @@ if __name__ == "__main__":
     TEST_MODE = True
 
     if (TEST_MODE):
-        np.random.normal(15, 2, size=(2,60))
+        set_config(transform_output="pandas")
+
+        group_1 = np.random.normal(15, 2, size=60)
+        group_2 = np.random.normal(60, 2, size=60)
+        group_3 = np.random.normal(120, 2, size=60)
+        result = np.concatenate((group_1, group_2, group_3))
+        result_df = pd.DataFrame(result, columns=['days_since_initial_visit_in_ldct'])
+        start_days = []
+
+        # result_df_reshaped = result_df.values.reshape(-1,1)
+        
+        transformer = PowerTransformer(method='yeo-johnson')
+
+        transformed_df = transformer.fit_transform(result_df)
+
+        final_results = pipeline(transformed_df, start_days, transformer)
+        print(final_results)
+
     else:
 
         parser = argparse.ArgumentParser()
@@ -210,9 +230,9 @@ if __name__ == "__main__":
         # setting the threshold for BIC score
         threshold = x_data_corrected.quantile(0.95)
 
-        clean_data = x_data_corrected[x_data_corrected <= threshold].to_frame()
+        X_data = x_data_corrected[x_data_corrected <= threshold].to_frame()
 
-        X_data = clean_data.values.reshape(-1,1)
+        # X_data = clean_data.values.reshape(-1,1)
 
         transformer = PowerTransformer(method='yeo-johnson')
 
@@ -220,7 +240,7 @@ if __name__ == "__main__":
 
         collected_dates = []
 
-        pipeline(transformed_X_data, collected_dates)
+        final_results = pipeline(transformed_X_data, collected_dates)
 
         # draw_graphs(df_ldct)
 
