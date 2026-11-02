@@ -33,6 +33,8 @@ graphs/
 test.py
 test.csv
 number_of_dates.txt
+check_intervals.py
+timelines_old.py
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
