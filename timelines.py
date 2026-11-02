@@ -79,7 +79,7 @@ if __name__ == "__main__":
     lower_threshold = 45
     x_data = pre_x_data[(pre_x_data > 0) & (pre_x_data <= upper_threshold) & (pre_x_data >= lower_threshold)].to_frame()
 
-    with open("number_of_dates.txt", "a") as f:
+    with open("output_files/number_of_dates.txt", "a") as f:
         f.write(x_data.value_counts().to_string())
 
 
@@ -113,11 +113,40 @@ if __name__ == "__main__":
     print(df_grouped['days_since_ldct_visit'].agg(['min','max','count']))
 
 
+    # preparing the df_ldct table for Sankey creation
+
+    conditions = [
+        df_ldct['visit_category'].isna() & (df_ldct['days_since_ldct_visit'] < lower_threshold),
+        df_ldct['visit_category'].isna() & (df_ldct['days_since_ldct_visit'] > upper_threshold)
+    ]
+    choices = ['Quick examination', 'Comeback after > 2 yrs']
+
+    df_ldct['visit_category'] = df_ldct['visit_category'].fillna(
+        pd.Series(np.select(conditions, choices, default='Inne'), index=df_ldct.index)
+    )
+
+    df_ldct.loc[df_ldct['visit_sequence'] == '1', 'visit_category'] = 'Start'
+
+    # building source nodes for Sankey
+    df_ldct['sankey_node'] = 'Wizyta ' + df_ldct['visit_sequence'] + ' (' + df_ldct['visit_category'] + ')'
+
+    df_ldct['target_node'] = df_ldct.groupby('patient_globalentryid')['sankey_node'].shift(-1)
+
+    patient_id = '001ba35b-281c-432c-9187-3a58b7d928a9'
+
+    print(df_ldct[df_ldct['patient_globalentryid'] == patient_id][['patient_globalentryid', 'visit_sequence', 'sankey_node', 'target_node']])
+    # print(df_ldct[['patient_globalentryid', 'visit_sequence', 'sankey_node', 'target_node']].head(15))
 
 
 
-    # for row in transformed_x_data.intertuples():
+#continue from here!!!
 
+
+    # agregation of data for Sankey plot
+
+    data_for_sankey = df_ldct.groupby(['target_node', 'sankey_node']).size().reset_index(name='value')
+    print(data_for_sankey)
+    
 
     # draw_graphs(df_ldct)
 

@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 from sklearn import linear_model
 import argparse
 import pandas as pd
@@ -18,19 +18,36 @@ def str_to_bool(s):
 
 def log_regr_analysis(df):
 
-    modified_cancer_diagosed = str_to_bool(df['is_diagnosed'])
-    X = numpy.array(df['emphysema_present'].astype(int)).reshape(-1,1)
-    y = numpy.array(modified_cancer_diagosed.astype(int)).ravel()
+    df['y_target'] = str_to_bool(df['is_diagnosed']).astype(int)
 
-    logr = linear_model.LogisticRegression()
-    logr.fit(X,y)
+    df['sex_binary'] = pd.get_dummies(df['patient_sex_code'], drop_first=True, dtype=int)
 
-    predicted = logr.predict(X)
-    print(predicted)
+    feature_columns = ['emphysema_present', 'age', 'patientcard_packyears_packyearsvalue', 'sex_binary']
 
-    log_odds = logr.coef_
-    odds = numpy.exp(log_odds)
-    print(odds) 
+    with open('output_files/regression_results.txt', 'w', encoding='utf-8') as f:
+        f.write("Report: SISO regression\n")
+        for col in feature_columns:
+            f.write(f"\nAnalysis for {col} trait\n")
+            subset = df[[col, 'y_target']].copy()
+
+            subset_clean = subset.dropna()
+
+            X = np.array(subset_clean[col].astype(float)).reshape(-1,1)
+            y = np.array(subset_clean['y_target'].astype(int)).ravel()
+
+            logr = linear_model.LogisticRegression()
+            logr.fit(X,y)
+
+            predicted = logr.predict_proba(X)
+
+            beta = logr.coef_[0][0]
+            odds_ratio = np.exp(beta)
+
+            odds = np.exp(beta)
+
+            f.write(f"Prediction [probability]: {predicted[:10]} ... (first 10 shown)\n")
+            f.write(f"Beta (log-odds): {beta:.4f}\n")
+            f.write(f"Odds Ratio (OR): {odds:.4f}\n")
 
 if __name__ == "__main__":
 
