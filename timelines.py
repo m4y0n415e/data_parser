@@ -1,14 +1,13 @@
 import argparse
 import pandas as pd
 import numpy as np
+
 import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 from encoding import detect_encoding
-from sklearn.preprocessing import PowerTransformer
 from sklearn import set_config
 from sklearn.mixture import GaussianMixture
-from statsmodels.tsa.ar_model import AutoReg
-from scipy.stats import norm
 
 def load(input):
     coding = detect_encoding(input)
@@ -71,6 +70,21 @@ if __name__ == "__main__":
 
     df_ldct = load(args.ldct)
 
+    subset = ['patient_globalentryid', 'reportdate']
+    df_ldct = df_ldct.drop_duplicates(subset, keep='first')
+
+    df_ldct.sort_values(subset, inplace=True)
+
+    df_ldct['reportdate'] = pd.to_datetime(df_ldct['reportdate'])
+
+    df_ldct['days_since_ldct_visit'] = df_ldct.groupby('patient_globalentryid')['reportdate'].diff().dt.days
+
+    df_ldct['visit_sequence'] = df_ldct.groupby('patient_globalentryid')['reportdate'].cumcount() + 1
+
+    patient_id = '001ba35b-281c-432c-9187-3a58b7d928a9'
+
+    print(df_ldct[df_ldct['patient_globalentryid'] == patient_id][['patient_globalentryid', 'visit_sequence']])
+
     set_config(transform_output="pandas")
 
     pre_x_data = df_ldct['days_since_ldct_visit'].astype(float)
@@ -106,7 +120,7 @@ if __name__ == "__main__":
     df_ldct['days_since_ldct_visit'] = df_ldct['days_since_ldct_visit'].astype(float)
 
     # printing results to test accuracy
-    print(df_ldct[['days_since_ldct_visit', 'visit_category']].dropna().head(15))
+    # print(df_ldct[['days_since_ldct_visit', 'visit_category']].dropna().head(15))
 
     df_grouped = df_ldct.groupby(['visit_category'])
 
@@ -125,28 +139,52 @@ if __name__ == "__main__":
         pd.Series(np.select(conditions, choices, default='Inne'), index=df_ldct.index)
     )
 
-    df_ldct.loc[df_ldct['visit_sequence'] == '1', 'visit_category'] = 'Start'
+    df_ldct.loc[df_ldct['visit_sequence'] == 1, 'visit_category'] = 'Start'
 
     # building source nodes for Sankey
-    df_ldct['sankey_node'] = 'Wizyta ' + df_ldct['visit_sequence'] + ' (' + df_ldct['visit_category'] + ')'
+    df_ldct['sankey_node'] = 'Visit no. ' + df_ldct['visit_sequence'].astype(str) + ' (' + df_ldct['visit_category'] + ')'
 
     df_ldct['target_node'] = df_ldct.groupby('patient_globalentryid')['sankey_node'].shift(-1)
 
-    patient_id = '001ba35b-281c-432c-9187-3a58b7d928a9'
-
-    print(df_ldct[df_ldct['patient_globalentryid'] == patient_id][['patient_globalentryid', 'visit_sequence', 'sankey_node', 'target_node']])
-    # print(df_ldct[['patient_globalentryid', 'visit_sequence', 'sankey_node', 'target_node']].head(15))
-
-
-
-#continue from here!!!
+    # print(df_ldct[df_ldct['patient_globalentryid'] == patient_id][['patient_globalentryid', 'visit_sequence', 'sankey_node', 'target_node']])
 
 
     # agregation of data for Sankey plot
 
-    data_for_sankey = df_ldct.groupby(['target_node', 'sankey_node']).size().reset_index(name='value')
-    print(data_for_sankey)
+    df_pre_sankey = df_ldct.dropna(subset=['target_node'])
+    data_for_sankey = df_pre_sankey.groupby(['sankey_node', 'target_node']).size().reset_index(name='value')
+    #print(data_for_sankey)
     
+    unique_nodes = pd.concat([data_for_sankey['sankey_node'], data_for_sankey['target_node']]).unique().tolist()
+
+    node_map = {node_name: idx for idx, node_name in enumerate(unique_nodes)}
+
+    data_for_sankey['source_id'] = data_for_sankey['sankey_node'].map(node_map)
+    data_for_sankey['target_id'] = data_for_sankey['target_node'].map(node_map)
+
+
+    fig = go.Figure(data=[go.Sankey(
+        node=dict(
+            pad=15,
+            thickness=20,
+            line=dict(color='black', width=0.5),
+            label=unique_nodes
+        ),
+        link=dict(
+            source=data_for_sankey['source_id'],
+            target=data_for_sankey['target_id'],
+            value=data_for_sankey['value']
+        )
+    )])
+
+    fig.update_layout(
+        title_text="Patient timeline trajectories based on the LDCT visits data",
+        font_size=10
+    )
+
+    fig.show()
+
+    # print(df_ldct['days_since_initial_visit'].astype(float).min())
 
     # draw_graphs(df_ldct)
 

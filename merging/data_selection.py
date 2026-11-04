@@ -87,7 +87,8 @@ def selection2_three_visits(df_kwalifikacyjne, df_NDTK, df_wynikowe):
 
         return df_grouped
 
-def add_time_since_last_visit(df, df_ndtk, df_consultation):
+# TBM
+def add_time_since_last_visit(df, df_ndtk, df_consultation): # !!! to be modified - incorrect counting system, as visits are often split int a few rows about the same day
        df.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
        df['days_since_last_visit'] = (df['reportdate'] - (df.groupby('patient_globalentryid')['reportdate'].shift())).dt.days
        
@@ -113,6 +114,7 @@ def add_time_since_last_visit(df, df_ndtk, df_consultation):
        df_consultation.fillna({'days_since_last_visit': 0}, inplace=True)
 
        return df_ndtk, df_consultation
+# TBM
 
 def add_time_since_program_start(df, df_ndtk, df_consultation):
         df.sort_values(by=['patient_globalentryid', 'reportdate'], inplace=True)
